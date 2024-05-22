@@ -8,37 +8,33 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 counter = 0
 
-threads = []
 face_match = False
-
 reference_img = cv2.imread("reference.jpg")
 
 def check_face(frame):
     global face_match
-    try:
-        if DeepFace.verify(frame, reference_img.copy())['verified']:
-            if not face_match:
-                face_match = True
-        else:
-            if not face_match:
-                face_match = False
-    except ValueError:
-        if not face_match:
-            face_match = False
+    result = False
+    faces = []
+    # TODO: create for loop that loops over user's friends (insert sql retrieval)
+    for face in faces:
+        try:
+            if DeepFace.verify(frame, face): # user friend image
+                result = True
+                break
+        except ValueError:
+            continue
+    face_match = result
 
 
 while True:
     ret, frame = cap.read() # TODO: image received from camera 
-    threads = []
     if ret:
-        # TODO: create for loop that over users friends
         if counter % 30 == 0:
             try:
-                thread = threading.Thread(target=check_face, args=(frame.copy(), )).start()
-                threads.append(thread)
+                threading.Thread(target=check_face, args=(frame.copy(), )).start()
             except ValueError:
                 pass
-            counter += 1
+        counter += 1
 
         if face_match: # if match
             cv2.putText(frame, "MATCH!", (20,450), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 2, (0,255,0)) # filler code
