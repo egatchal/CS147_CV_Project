@@ -4,6 +4,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Upload Image</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        function loadRecentImage() {
+          $('#recent-image').attr('src', '/recent_image');
+        }
+
+        setInterval(loadRecentImage, 5000); // Update image every 5 seconds
+        loadRecentImage();
+      });
+    </script>
   </head>
   <body>
     <div class="container">
@@ -17,7 +28,7 @@
           </ul>
         {% endif %}
       {% endwith %}
-      <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
         <div>
           <label for="password">Password:</label>
           <input type="password" name="password" required>
@@ -28,13 +39,17 @@
         </div>
         <input type="submit" value="Upload">
       </form>
-      <h2>Uploaded Images</h2>
+      <h2>Recent Image</h2>
+      <div>
+        <img id="recent-image" src="" alt="Recent image will be displayed here" style="max-width: 300px;">
+      </div>
+      <h2>Uploaded Images in Database</h2>
       <div>
         {% for image in images %}
-          <div>
-            <h3>{{ image.filename }}</h3>
-            <img src="{{ url_for('image', image_id=image.id) }}" alt="{{ image.filename }}" style="max-width: 300px;">
-          </div>
+        <div>
+          <h3>{{ image.filename }}</h3>
+          <img src="{{ url_for('image', image_id=image.id) }}" alt="{{ image.filename }}" style="max-width: 300px;">
+        </div>
         {% endfor %}
       </div>
       <form method="post" action="{{ url_for('delete_all_images') }}" onsubmit="return confirm('Are you sure you want to delete all images? This action cannot be undone.');">

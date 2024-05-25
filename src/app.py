@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, render_template, flash, send_file
+from flask import Flask, request, render_template, flash, jsonify, send_file, redirect, url_for
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
 import os
@@ -6,6 +6,9 @@ from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = 'cs147'.encode('utf8')
+
+# Variable to store the most recently uploaded image
+recent_image = {'filename': None, 'data': None}
 
 # MySQL configurations
 app.config['MYSQL_HOST'] = 'localhost'
@@ -53,15 +56,6 @@ def upload_image():
         flash('File successfully uploaded')
         return redirect(url_for('index'))
     
-@app.route('/delete_all_images', methods=["POST"])
-def delete_all_images():
-    cursor = mysql.connection.cursor()
-    cursor.execute("TRUNCATE TABLE images")
-    mysql.connection.commit()
-    cursor.close()
-    flash('All images have been deleted.')
-    return redirect(url_for('index'))
-    
 @app.route('/image/<int:image_id>')
 def image(image_id):
     cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -71,6 +65,35 @@ def image(image_id):
     if image:
         return send_file(BytesIO(image['data']), mimetype='image/jpeg')
     return 'Image not found', 404
+    
+@app.route('/delete_all_images', methods=["POST"])
+def delete_all_images():
+    cursor = mysql.connection.cursor()
+    cursor.execute("TRUNCATE TABLE images")
+    mysql.connection.commit()
+    cursor.close()
+    flash('All images have been deleted.')
+    return redirect(url_for('index'))
+    
+@app.route('/recent_image')
+def get_recent_image():
+    if recent_image['data'] is not None:
+        return send_file(BytesIO(recent_image['data']), mimetype='image/jpeg')
+    return 'No image uploaded', 404
+
+@app.route('/api/upload', methods=['POST'])
+def api_upload_image():
+    print("RECEIVEING IMAGE FROM CAMERA")
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    if file:
+        recent_image['filename'] = file.filename
+        recent_image['data'] = file.read()
+        print(recent_image['data'])
+        return jsonify({'success': 'File successfully uploaded'}), 201
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
