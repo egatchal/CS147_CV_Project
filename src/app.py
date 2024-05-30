@@ -6,16 +6,12 @@ from io import BytesIO
 import base64
 import PIL.Image as Image
 from io import BytesIO
+
+CAM_IMAGE_PATH = "./camera_image.png"
 app = Flask(__name__)
 app.secret_key = 'cs147'.encode('utf8')
 
-# Variable to store the most recently uploaded image
-recent_image = {'filename': None, 'data': None}
-def redo_image(image):
-    for i in range(len(image)):
-        if image[i] == " ":
-            image[i] = "+"
-            
+
 # MySQL configurations
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'ubuntu'
@@ -26,7 +22,12 @@ mysql = MySQL(app)
 
 def decode_base64_image(image_data):
     # Decode the Base64-encoded image data
-    return base64.b64decode(image_data)
+    image = base64.b64decode(image_data)
+
+    # Write the binary data to an image file
+    with open(CAM_IMAGE_PATH, "wb") as image_file:
+        image_file.write(image)
+    return image
 
 @app.route('/')
 def index():
@@ -87,23 +88,25 @@ def delete_all_images():
     
 @app.route('/recent_image')
 def get_recent_image():
-    if recent_image['data'] is not None:
-        return send_file(BytesIO(recent_image['data']), mimetype='image/jpeg')
-    return 'No image uploaded', 404
+    try:
+        with open(CAM_IMAGE_PATH, "rb") as image_file:
+            bytes = image_file.read()
+            return send_file(BytesIO(bytes), mimetype='image/png')
+        return 'No image uploaded', 404    
+    except FileNotFoundError:
+        return 'No image uploaded', 404
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload_image():
     print("RECEIVEING IMAGE FROM CAMERA")
-    
-    image = request.form['image']
-    print(image)
-    decoded_image = decode_base64_image(image)
-    print(BytesIO(decoded_image))
-    img = Image.open(BytesIO(decoded_image))
-    out_jpg = img.convert('RGB')
-    out_jpg.save('image.jpg')
-
-    return "1"
+    jsonData = request.get_json()
+    print(jsonData)
+    image = jsonData["image"]
+    if not image:
+        return "NO IMAGE RECEIVED"
+    else:
+        decode_base64_image(image)
+    return "Image Received"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
