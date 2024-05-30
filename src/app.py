@@ -3,13 +3,19 @@ from flask_mysqldb import MySQL
 import MySQLdb.cursors
 import os
 from io import BytesIO
-
+import base64
+import PIL.Image as Image
+from io import BytesIO
 app = Flask(__name__)
 app.secret_key = 'cs147'.encode('utf8')
 
 # Variable to store the most recently uploaded image
 recent_image = {'filename': None, 'data': None}
-
+def redo_image(image):
+    for i in range(len(image)):
+        if image[i] == " ":
+            image[i] = "+"
+            
 # MySQL configurations
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'ubuntu'
@@ -17,6 +23,10 @@ app.config['MYSQL_PASSWORD'] = 'password'
 app.config['MYSQL_DB'] = 'image_db'
 
 mysql = MySQL(app)
+
+def decode_base64_image(image_data):
+    # Decode the Base64-encoded image data
+    return base64.b64decode(image_data)
 
 @app.route('/')
 def index():
@@ -84,16 +94,16 @@ def get_recent_image():
 @app.route('/api/upload', methods=['POST'])
 def api_upload_image():
     print("RECEIVEING IMAGE FROM CAMERA")
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file:
-        recent_image['filename'] = file.filename
-        recent_image['data'] = file.read()
-        print(recent_image['data'])
-        return jsonify({'success': 'File successfully uploaded'}), 201
+    
+    image = request.form['image']
+    print(image)
+    decoded_image = decode_base64_image(image)
+    print(BytesIO(decoded_image))
+    img = Image.open(BytesIO(decoded_image))
+    out_jpg = img.convert('RGB')
+    out_jpg.save('image.jpg')
+
+    return "1"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
