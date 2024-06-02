@@ -4,13 +4,14 @@ import MySQLdb.cursors
 import os
 from io import BytesIO
 import base64
-import PIL.Image as Image
-from io import BytesIO
+import threading
+import time
+import cv2
+from deepface import DeepFace
 
 CAM_IMAGE_PATH = "./camera_image.png"
 app = Flask(__name__)
 app.secret_key = 'cs147'.encode('utf8')
-
 
 # MySQL configurations
 app.config['MYSQL_HOST'] = 'localhost'
@@ -19,6 +20,13 @@ app.config['MYSQL_PASSWORD'] = 'password'
 app.config['MYSQL_DB'] = 'image_db'
 
 mysql = MySQL(app)
+
+if os.path.exists(CAM_IMAGE_PATH):
+    with open(CAM_IMAGE_PATH, "rb") as image:
+        recent_image_data = decode_base64_image(image)
+else:
+    recent_image_data = None
+recognized_faces = []  # To store recognized faces information
 
 def decode_base64_image(image_data):
     # Decode the Base64-encoded image data
@@ -66,7 +74,7 @@ def upload_image():
         cursor.close()
         flash('File successfully uploaded')
         return redirect(url_for('index'))
-    
+
 @app.route('/image/<int:image_id>')
 def image(image_id):
     cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -76,7 +84,7 @@ def image(image_id):
     if image:
         return send_file(BytesIO(image['data']), mimetype='image/jpeg')
     return 'Image not found', 404
-    
+
 @app.route('/delete_all_images', methods=["POST"])
 def delete_all_images():
     cursor = mysql.connection.cursor()
@@ -85,28 +93,68 @@ def delete_all_images():
     cursor.close()
     flash('All images have been deleted.')
     return redirect(url_for('index'))
-    
+
 @app.route('/recent_image')
 def get_recent_image():
-    try:
-        with open(CAM_IMAGE_PATH, "rb") as image_file:
-            bytes = image_file.read()
-            return send_file(BytesIO(bytes), mimetype='image/png')
-        return 'No image uploaded', 404    
-    except FileNotFoundError:
-        return 'No image uploaded', 404
+    global recent_image_data
+    if recent_image_data:
+        return send_file(BytesIO(recent_image_data), mimetype='image/png')
+    return 'No image uploaded', 404
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload_image():
-    print("RECEIVEING IMAGE FROM CAMERA")
     jsonData = request.get_json()
-    print(jsonData)
     image = jsonData["image"]
     if not image:
-        return "NO IMAGE RECEIVED"
+        return jsonify({'error': 'No image received'}), 400
     else:
-        decode_base64_image(image)
-    return "Image Received"
+        global recent_image_data
+        recent_image_data = decode_base64_image(image)
+        return jsonify({'success': 'Image received'}), 201
+    
+@app.route('/recognized_faces')
+def get_recognized_faces():
+    return jsonify(recognized_faces)
+
+def facial_recognition_thread():
+    global recognized_faces
+    while True:
+        if os.path.exists(CAM_IMAGE_PATH):
+            try:
+                # Read the current image
+                img1 = cv2.imread(CAM_IMAGE_PATH)
+                recognized_faces = []
+
+                # Fetch all images from the database
+                cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+                cursor.execute("SELECT id, filename, data FROM images")
+                images = cursor.fetchall()
+                cursor.close()
+                if len(images) == 0:
+                    print("There are no images in the DB!")
+                for image in images:
+                    # Convert binary data to numpy array
+                    img_data = image['data']
+                    img2 = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+
+                    # Perform face recognition
+                    try:
+                        result = DeepFace.verify(img1, img2, enforce_detection=False)
+                        if result["verified"]:
+                            recognized_faces.append({
+                                "image_id": image["id"],
+                                "filename": image["filename"],
+                                "match": result["verified"]
+                            })
+                    except Exception as e:
+                        print(f"Error in face recognition: {e}")
+
+                print("Faces recognized:", recognized_faces)
+            except Exception as e:
+                print(f"Error in face recognition: {e}")
+        time.sleep(10)  # Run every 10 seconds
 
 if __name__ == "__main__":
+    recognition_thread = threading.Thread(target=facial_recognition_thread)
+    recognition_thread.start()
     app.run(host='0.0.0.0', port=8080)

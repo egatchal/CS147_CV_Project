@@ -3,15 +3,24 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Upload Image</title>
+    <title>CS 147 CV Project</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
       $(document).ready(function() {
         function loadRecentImage() {
-          $('#recent-image').attr('src', '/recent_image');
+          $.ajax({
+            url: '/recent_image',
+            type: 'GET',
+            success: function(data) {
+              $('#recent-image').attr('src', '/recent_image');
+            },
+            error: function() {
+              console.log('No recent image found.');
+            }
+          });
         }
 
-        setInterval(loadRecentImage, 5000); // Update image every 5 seconds
+        setInterval(loadRecentImage, 3000); // Update image every 1.5 seconds
         loadRecentImage();
       });
     </script>
