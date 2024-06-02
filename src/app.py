@@ -7,7 +7,17 @@ import base64
 import threading
 import time
 import cv2
+import numpy as np
 from deepface import DeepFace
+
+def decode_base64_image(image_data):
+    # Decode the Base64-encoded image data
+    image = base64.b64decode(image_data)
+
+    # Write the binary data to an image file
+    with open(CAM_IMAGE_PATH, "wb") as image_file:
+        image_file.write(image)
+    return image
 
 CAM_IMAGE_PATH = "./camera_image.png"
 app = Flask(__name__)
@@ -21,21 +31,8 @@ app.config['MYSQL_DB'] = 'image_db'
 
 mysql = MySQL(app)
 
-if os.path.exists(CAM_IMAGE_PATH):
-    with open(CAM_IMAGE_PATH, "rb") as image:
-        recent_image_data = decode_base64_image(image)
-else:
-    recent_image_data = None
+recent_image_data = None
 recognized_faces = []  # To store recognized faces information
-
-def decode_base64_image(image_data):
-    # Decode the Base64-encoded image data
-    image = base64.b64decode(image_data)
-
-    # Write the binary data to an image file
-    with open(CAM_IMAGE_PATH, "wb") as image_file:
-        image_file.write(image)
-    return image
 
 @app.route('/')
 def index():
@@ -108,53 +105,57 @@ def api_upload_image():
     if not image:
         return jsonify({'error': 'No image received'}), 400
     else:
+        print("Adding image from cam")
         global recent_image_data
         recent_image_data = decode_base64_image(image)
+        facial_recognition()
         return jsonify({'success': 'Image received'}), 201
     
 @app.route('/recognized_faces')
 def get_recognized_faces():
     return jsonify(recognized_faces)
 
-def facial_recognition_thread():
+def facial_recognition():
     global recognized_faces
-    while True:
-        if os.path.exists(CAM_IMAGE_PATH):
-            try:
-                # Read the current image
-                img1 = cv2.imread(CAM_IMAGE_PATH)
-                recognized_faces = []
+    if os.path.exists(CAM_IMAGE_PATH):
+        try:
+            # Read the current image
+            img1 = cv2.imread(CAM_IMAGE_PATH)
+            recognized_faces = []
+            
+            # Fetch all images from the database
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute("SELECT id, filename, data FROM images")
+            images = cursor.fetchall()
+            cursor.close()
+            if len(images) == 0:
+                print("There are no images in the DB!")
+            for image in images:
+                print("Comparing image here")
+                # Convert binary data to numpy array
+                img_data = image['data']
+                print("1")
+                img2 = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+                print("2")
+                # Perform face recognition
+                try:
+                    print("3")
+                    result = DeepFace.verify(img1, img2, enforce_detection=False)
+                    print("4")
+                    if result["verified"]:
+                        print("5")
+                        recognized_faces.append({
+                            "image_id": image["id"],
+                            "filename": image["filename"],
+                            "match": result["verified"]
+                        })
+                        print("6")
+                except Exception as e:
+                    print(f"Error in face recognition: {e}")
 
-                # Fetch all images from the database
-                cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-                cursor.execute("SELECT id, filename, data FROM images")
-                images = cursor.fetchall()
-                cursor.close()
-                if len(images) == 0:
-                    print("There are no images in the DB!")
-                for image in images:
-                    # Convert binary data to numpy array
-                    img_data = image['data']
-                    img2 = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
-
-                    # Perform face recognition
-                    try:
-                        result = DeepFace.verify(img1, img2, enforce_detection=False)
-                        if result["verified"]:
-                            recognized_faces.append({
-                                "image_id": image["id"],
-                                "filename": image["filename"],
-                                "match": result["verified"]
-                            })
-                    except Exception as e:
-                        print(f"Error in face recognition: {e}")
-
-                print("Faces recognized:", recognized_faces)
-            except Exception as e:
-                print(f"Error in face recognition: {e}")
-        time.sleep(10)  # Run every 10 seconds
+            print("Faces recognized:", recognized_faces)
+        except Exception as e:
+            print(f"Error in face recognition: {e}")
 
 if __name__ == "__main__":
-    recognition_thread = threading.Thread(target=facial_recognition_thread)
-    recognition_thread.start()
     app.run(host='0.0.0.0', port=8080)
