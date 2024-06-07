@@ -10,6 +10,7 @@ from flask import (
 )
 import boto3
 import os
+import time
 from io import BytesIO
 import base64
 from ClearImageData import clear_s3_bucket, clear_dynamodb_table
@@ -24,8 +25,9 @@ app = Flask(__name__)
 app.secret_key = "cs147".encode("utf8")
 
 recent_image_data = None
-recognized_faces = []  # To store recognized faces information
-
+button_pressed = False
+operation_finished = False
+image_recognition = None
 
 def decode_base64_image(image_data):
     # Decode the Base64-encoded image data
@@ -98,6 +100,10 @@ def esp32_cam_upload_image():
         recent_image_data = decode_base64_image(image)
         recognitionStatus = facial_recognition(CAM_IMAGE_PATH)
         print(recognitionStatus)
+        global image_recognition, operation_finished, button_pressed
+        image_recognition = recognitionStatus
+        operation_finished = True
+        button_pressed = False
         if recognitionStatus:
             return jsonify(recognitionStatus), 201
         else:
@@ -111,6 +117,23 @@ def get_recent_image():
         return send_file(BytesIO(recent_image_data), mimetype="image/png")
     return "No image uploaded", 404
 
+
+@app.route("/check_button_pressed")
+def check_button_pressed():
+    global button_pressed
+    return str(button_pressed), 200
+
+
+@app.route("/api/button", methods=["POST"])
+def api_button_pressed():
+    global button_pressed, operation_finished, image_recognition
+    button_pressed = True
+    operation_finished = False
+    image_recognition = None
+    while not operation_finished:
+        time.sleep(2)
+    return jsonify(image_recognition), 200
+    
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

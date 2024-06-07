@@ -39,6 +39,8 @@ const char* serverAddress = "3.143.245.72"; // Server address
 const int serverPort = 8080;              // Server port (80 for HTTP, 443 for HTTPS)
 WiFiClient wifi;
 HttpClient client = HttpClient(wifi, serverAddress, serverPort);
+bool buttonPressed = false;
+const int LED_PIN = 4;
 
 camera_config_t config;
 void cameraInit() {
@@ -173,8 +175,25 @@ String grabImage() {
   return base64String;
 }
 
-bool buttonPressed = false;
-const int LED_PIN = 4;
+bool checkIfButtonPressed() {
+  Serial.println("Preparing to get!");
+  client.get("/check_button_pressed");
+
+  // read the status code and body of the response
+  int statusCode = client.responseStatusCode();
+  String response = client.responseBody();
+
+  Serial.print("Status code: ");
+  Serial.println(statusCode);
+  Serial.print("Response: ");
+  Serial.println(response);
+
+  if (response.equals("True")) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -189,68 +208,40 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
 }
 
-
-bool firstTime = true;
 void loop() {
-  // camera_fb_t *fb = NULL;
-  // esp_err_t res = ESP_OK;
-  // fb = esp_camera_fb_get();
-  // if(!fb) {
-  //   Serial.println("Camera capture failed");
-  //   esp_camera_fb_return(fb);
-  //   return;
-  // }
+  buttonPressed = checkIfButtonPressed();
+  if (buttonPressed) {
+    String encodedImage = grabImage();
 
-  // size_t fb_len = 0;
-  
-  // if(fb->format != PIXFORMAT_JPEG){
-  //   Serial.println("Non-JPEG data not implemented");
-  //   return;
-  // }
-  // Serial.println("Button pressed!");
-  // digitalWrite(ledPin, HIGH);
-  // delay(100);
-  String encodedImage = grabImage();
+    // POTENTIAL STALLING FOREVER IF NOT HANDLED
+    if (encodedImage.equals("")) {
+      Serial.println("Could not grab image!");
+      buttonPressed = false;
+      return;
+    }
 
-  if (encodedImage.equals("")) {
-    Serial.println("Could not grab image!");
-    return;
+    Serial.println("Preparing to send post!");
+    String pixelDataString = encodedImage;
+    String jsonData = "{\"image\":";
+    jsonData.concat("\"" + pixelDataString + "\"");
+    jsonData.concat("}");
+    Serial.println("making POST request");
+
+    String contentType = "application/json";
+    String postData = jsonData;
+
+    Serial.println("Posting...");
+    client.post("/api/upload", contentType, postData);
+
+    // read the status code and body of the response
+    int statusCode = client.responseStatusCode();
+    String response = client.responseBody();
+    Serial.println("Waiting...");
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
+    buttonPressed = false;
   }
-
-  Serial.println("Preparing to send post!");
-  String pixelDataString = encodedImage;
-  String jsonData = "{\"image\":";
-  jsonData.concat("\"" + pixelDataString + "\"");
-  jsonData.concat("}");
-  Serial.println("making POST request");
-
-  String contentType = "application/json";
-  String postData = jsonData;
-
-  Serial.println("Posting...");
-  client.post("/api/upload", contentType, postData);
-
-  // read the status code and body of the response
-  int statusCode = client.responseStatusCode();
-  String response = client.responseBody();
-
-  Serial.print("Status code: ");
-  Serial.println(statusCode);
-  Serial.print("Response: ");
-  Serial.println(response);
-
-  // delay(100);
-  // digitalWrite(ledPin, LOW);
-  // buttonPressed = false;
-  Serial.println("Wait 5 seconds");
-  delay(5000);
-  // if (buttonPressed) {
-  //   Serial.println("Button pressed!");
-  //   digitalWrite(ledPin, HIGH);
-  //   delay(100);
-  //   String base64String = grabImage();
-  //   delay(100);
-  //   digitalWrite(ledPin, LOW);
-  //   buttonPressed = false;
-  // }
+  delay(2000);
 }
