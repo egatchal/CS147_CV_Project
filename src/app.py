@@ -96,11 +96,9 @@ def esp32_cam_upload_image():
     if not image:
         return jsonify({"error": "No image received"}), 400
     else:
-        print("Adding image from cam")
         global recent_image_data
         recent_image_data = decode_base64_image(image)
         recognitionStatus = facial_recognition(CAM_IMAGE_PATH)
-        print(recognitionStatus)
         global image_recognition, operation_finished, button_pressed
         image_recognition = recognitionStatus
         operation_finished = True
