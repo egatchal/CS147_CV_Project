@@ -104,6 +104,8 @@ def esp32_cam_upload_image():
         image_recognition = recognitionStatus
         operation_finished = True
         button_pressed = False
+        flash("Face recognition", recognitionStatus)
+        redirect(url_for("index"))
         if recognitionStatus:
             return jsonify(recognitionStatus), 201
         else:
@@ -117,6 +119,10 @@ def get_recent_image():
         return send_file(BytesIO(recent_image_data), mimetype="image/png")
     return "No image uploaded", 404
 
+@app.route("/get_match")
+def get_match():
+    global image_recognition
+    return jsonify(image_recognition)
 
 @app.route("/check_button_pressed")
 def check_button_pressed():

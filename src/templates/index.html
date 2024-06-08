@@ -18,9 +18,24 @@
               console.log('No recent image found.');
             }
           });
+
+          $.ajax({
+            url: '/get_match',
+            type: 'GET',
+            success: function(data) {
+              if (data === null || !data.found) {
+                $('#match').html("No Match!"); 
+              } else {
+                $('#match').html("Match! " + data.names_of_person); 
+              }
+            },
+            error: function() {
+              console.log('No recent image found.');
+            }
+          });
         }
 
-        setInterval(loadRecentImage, 3000); // Update image every 1.5 seconds
+        setInterval(loadRecentImage, 3000); // Update image every 3 seconds
         loadRecentImage();
       });
     </script>
@@ -52,6 +67,8 @@
         </div>
         <input type="submit" value="Upload">
       </form>
+      <h2>Match</h2>
+      <div id="match"></div>
       <h2>Recent Image</h2>
       <div>
         <img id="recent-image" src="" alt="Recent image will be displayed here" style="max-width: 300px;">

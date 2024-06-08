@@ -29,13 +29,10 @@
 // ===========================
 // Enter your WiFi credentials
 // ===========================
-const char *ssid = "1474hahahahah";
-const char *password = "Sunshine720@#88!";
+const char *ssid = "SSID HERE";
+const char *password = "PASSWORD HERE";
 
-// const char *ssid = "UCInet Mobile Access";
-// const char *password = "";
-
-const char* serverAddress = "3.143.245.72"; // Server address
+const char* serverAddress = "SERVER IP HERE"; // Server address
 const int serverPort = 8080;              // Server port (80 for HTTP, 443 for HTTPS)
 WiFiClient wifi;
 HttpClient client = HttpClient(wifi, serverAddress, serverPort);

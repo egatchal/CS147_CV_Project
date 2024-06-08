@@ -1,15 +1,7 @@
 import boto3
 
-# Initialize a session using Amazon DynamoDB
-session = boto3.Session(
-    aws_access_key_id="ACCESS KEY HERE",
-    aws_secret_access_key="SECRET KEY HERE",
-    region_name="us-east-1",
-)
-
 # Initialize DynamoDB resource
-dynamodb = session.resource("dynamodb")
-
+dynamodb = boto3.resource("dynamodb")
 
 # Scan the table to get all the items
 def scan_table(table):
