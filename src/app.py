@@ -29,6 +29,7 @@ button_pressed = False
 operation_finished = False
 image_recognition = None
 
+
 def decode_base64_image(image_data):
     # Decode the Base64-encoded image data
     image = base64.b64decode(image_data)
@@ -119,10 +120,12 @@ def get_recent_image():
         return send_file(BytesIO(recent_image_data), mimetype="image/png")
     return "No image uploaded", 404
 
+
 @app.route("/get_match")
 def get_match():
     global image_recognition
     return jsonify(image_recognition)
+
 
 @app.route("/check_button_pressed")
 def check_button_pressed():
@@ -139,7 +142,7 @@ def api_button_pressed():
     while not operation_finished:
         time.sleep(2)
     return jsonify(image_recognition), 200
-    
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
