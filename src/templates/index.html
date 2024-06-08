@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>CS 147 CV Project</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        function loadRecentImage() {
+          $.ajax({
+            url: '/recent_image',
+            type: 'GET',
+            success: function(data) {
+              $('#recent-image').attr('src', '/recent_image');
+            },
+            error: function() {
+              console.log('No recent image found.');
+            }
+          });
+
+          $.ajax({
+            url: '/get_match',
+            type: 'GET',
+            success: function(data) {
+              if (data === null || !data.found) {
+                $('#match').html("No Match!"); 
+              } else {
+                $('#match').html("Match! " + data.names_of_person); 
+              }
+            },
+            error: function() {
+              console.log('No recent image found.');
+            }
+          });
+        }
+
+        setInterval(loadRecentImage, 3000); // Update image every 3 seconds
+        loadRecentImage();
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Upload Image</h1>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class=flashes>
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
+        <div>
+          <label for="password">Password:</label>
+          <input type="password" name="password" required>
+        </div>
+        <div>
+          <label for="file">Select file:</label>
+          <input type="file" name="file" accept="image/*" required>
+        </div>
+        <div>
+          <label for="name_of_person">Name of person:</label>
+          <input type="name_of_person" name="name_of_person" required>
+        </div>
+        <input type="submit" value="Upload">
+      </form>
+      <h2>Match</h2>
+      <div id="match"></div>
+      <h2>Recent Image</h2>
+      <div>
+        <img id="recent-image" src="" alt="Recent image will be displayed here" style="max-width: 300px;">
+      </div>
+      <h2>Uploaded Images in Database</h2>
+      <div>
+        {% for url in image_urls %}
+        <div>
+          <h3>{{ url }}</h3>
+          <img src="{{ url }}" alt="Image from S3" style="max-width: 300px;">
+        </div>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('delete_all_images') }}" onsubmit="return confirm('Are you sure you want to delete all images? This action cannot be undone.');">
+        <input type="submit" value="Delete All Images" style="background-color: red; color: white; margin-top: 20px;">
+      </form>
+    </div>
+  </body>
+</html>
